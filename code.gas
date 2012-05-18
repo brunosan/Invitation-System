@@ -1,20 +1,17 @@
-//Code edited to remove URLs and custom text. This would need to be aggregated into a configuration file
-
-//Invited to morning 9, lunch 9, recepcion 9,  10 am and pm
-var RESPONSES_GROUP1_ID = "Google ID";
-var RESPONSES_GROUP1_URL = "https://docs.google.com/spreadsheet/viewform?formkey=Google ID";
+//Invited to morning 9, lunch 9, recepcion 9,  10 am and pm 
+var RESPONSES_GROUP1_ID = "--Google Doc id ---";
+var RESPONSES_GROUP1_URL = "--Google Doc URL ---";
 //Invited to recepcion 9
-var RESPONSES_GROUP2_ID = "Google ID";
-var RESPONSES_GROUP2_URL = "https://docs.google.com/spreadsheet/viewform?formkey=Google ID";
+var RESPONSES_GROUP2_ID = "--Google Doc id ---";
+var RESPONSES_GROUP2_URL = "--Google Doc URL ---";
 
 //Master list of invitations
-var INVITES_SPREADSHEET_ID = "Google ID";
+var INVITES_SPREADSHEET_ID = "--Google Doc id ---";
 
 // Who receives the notification of replies?
-var MANAGER_EMAIL = "email@example.com"
-//copy of emails //Session.getUser().getEmail();
-var ITPERSON = "email@example.com"
-//cc of execution log besides current user
+var MANAGER_EMAIL = Session.getUser().getEmail(); //copy of emails //Session.getUser().getEmail();
+var ITPERSON = "brunosan@gain.org" //cc of execution log besides current user
+
 // Reply types
 var CONFIRMED = "Confirmed";
 var REFUSED = "Declined";
@@ -22,41 +19,47 @@ var OTHER = "See comments";
 var EMAIL_SENT = "Emailed";
 var REPLIED = "Replied";
 var GO = "Go";
-var ALLYES = "All";
-var ALLNO = "None";
-var YES9 = "Only 9";
-var YES10 = "Only 10";
-var DECLINED = "Declined";
+var ALLYES= "All: I will be attending all sessions May 9-10, 2012.";
+var ALLNO = "None: I will not attend any sessions May 9-10, 2012.";
+var ALLBOTH = "All: I will be attending all sessions May 9-10, 2012., None: I will not attend any sessions May 9-10, 2012."
+var YES9= "Only May 9";
+var YES10= "Only May 10";
+var DECLINED= "Declined";
 
 // Material
-var EVENT_DOC = "Google ID"
-var RECEPCION_DOC = "Google ID"
-
+var EVENT_DOC= "-- Google Doc id --"
+var RECEPCION_DOC= "-- Google Doc id --"
+var PERMISION_FORM= '-- Google Doc id --'
+var agenda;
+var papers;
+var logistics;
 
 // Internal Variables
-var COLUMN_PREFIX = 2;
-var COLUMN_FIRST = 3;
-var COLUMN_LAST = 4;
-var COLUMN_COMPANY = 6;
-var COLUMN_TITLE = 7;
-var COLUMN_STATE = 10;
-var COLUMN_9AM = COLUMN_STATE + 1;
-var COLUMN_9LUNCH = COLUMN_STATE + 2;
-var COLUMN_9PM = COLUMN_STATE + 3;
-var COLUMN_RECEPTION = COLUMN_STATE + 4;
-var COLUMN_10AM = COLUMN_STATE + 5;
-var COLUMN_10LUNCH = COLUMN_STATE + 6;
-var COLUMN_10PM = COLUMN_STATE + 7;
-var COLUMN_COMMENTS = COLUMN_STATE + 8;
+var COLUMN_PREFIX =   2 ;
+var COLUMN_FIRST =    3 ;
+var COLUMN_LAST =     4 ;
+var COLUMN_COMPANY =  6 ;
+var COLUMN_TITLE =    7 ;
+var COLUMN_STATE =    10;
+var COLUMN_9AM =      COLUMN_STATE +1;
+var COLUMN_9LUNCH =   COLUMN_STATE +2;
+var COLUMN_9PM =      COLUMN_STATE +3;
+var COLUMN_RECEPTION= COLUMN_STATE +4;
+var COLUMN_10AM =     COLUMN_STATE +5;
+var COLUMN_10LUNCH =  COLUMN_STATE +6;
+var COLUMN_10PM =     COLUMN_STATE +7;
+var COLUMN_COMMENTS = COLUMN_STATE +8;
+var COLUMN_REMINDER = COLUMN_STATE +14;
+var COLUMN_THANKYOU = COLUMN_STATE +16;
 
 //common block
 var ss = SpreadsheetApp.openById(INVITES_SPREADSHEET_ID);
-var sheet = ss.getSheets()[0];
-var DATARANGE = "A2:Z";
-var PEOPLEBLOCK = "B2:H";
-var REPLIESBLOCK = "J2:Z";
-var sendEmail = 0;
-//send first confirmatin email
+var sheet =ss.getSheets()[0];
+var DATARANGE="A2:Z";
+var PEOPLEBLOCK="B2:H";
+var REPLIESBLOCK="J2:Z";
+var sendEmail =0 ; //send first confirmation email
+
 //MASTER LIST INFO
 var data = getRowsData(sheet, sheet.getRange(DATARANGE));
 
@@ -68,151 +71,287 @@ var ReplyData1 = getRowsData(Group1Sheet);
 var ReplyData2 = getRowsData(Group2Sheet);
 
 //Execution Log
-var date = new Date();
-var Log = "Starting execution at: " + date + "<br>";
-var Timestamp = date.getTime();
-var TimestampNew = date.getTime();
+var date=new Date();
+var Log="Starting execution at: "+ date+"<br>";
+var Timestamp=date.getTime();
+var TimestampNew=date.getTime();
 
 
 // Main function:
 // For each row (invite):
 //   - if it's new, email the invite
 //   - if it has recently been replied, email the results to the manager
-//   - otherwise do nothing (already dealt with)
+//   - otherwise do nothing (already dealth with)
+
 function ProcessList() {
-    sendEmail = 0;
-    // Track remaining email quota.
-    var budget = MailApp.getRemainingDailyQuota();
+   sendEmail =0 ;
+   // Track remaining email quota.
+   var budget = MailApp.getRemainingDailyQuota();
 
-    // For every person
-    for (var i = 0; i < data.length; ++i) {
-
-        if (budget < 0) {
-            Browser.msgBox("Sorry, your account has reached your daily quote of emails.")
-            break;
-        }
-
-        var row = data[i];
-
-        if (row.state == GO) {
-            Log += "(+" + delay() + " s.) SENDING email to " + row.firstName + " " + row.lastName + "<br>";
-            // empty means do nothing
-            // "Go" means this is a new invitee AND we want to send him an invite.
-            // Email the person to request his response.
-            sendToInvitee(row);
-            // Update the state of the report to avoid email sending multiple emails
-            // to managers about the same report.
-            --budget;
-            sheet.getRange(row.id + 2, COLUMN_STATE).setValue(row.state);
-            // Flush to update sheet, in case script breaks.
-            SpreadsheetApp.flush();
-
-        }
-
-        //ReadReplies to see if that person replied
-        // Check if the person has accepted or rejected the invitation in the Reply Spreadsheet.
-        // We look that the tokens match. If they replied more than once, the last prevails.
-        if ((row.state == EMAIL_SENT)) {
-            //Check for replies and send email
-            sendEmail = 1;
-            readReplies(row);
-            sendEmail = 0;
-        }
-
-
+  // For every person
+  for (var i = 0; i < data.length; ++i) {
+    
+    if (budget < 0){
+      Browser.msgBox("Sorry, your account has reached your daily quote of emails.")
+      break;
     }
-    // for every person
-    Log += "(+" + delay() + " s.) Ended execution.";
-    MailApp.sendEmail(Session.getUser().getEmail(),
-    "Output of Processing list",
-    "",
-    {
-        htmlBody: Log,
-        //  attachments: pdf,
-        bcc: ITPERSON
-    });
-
-    Browser.msgBox("Smile. I've finished (" + delay() + " s)");
+    
+    var row = data[i];
+    
+    if (row.state == GO ) {
+      // empty means do nothing
+      // "Go" means this is a new invitee AND we want to send him an invite.
+      // Email the person to request his response.
+      switch(row.group)
+            {
+              case 1:
+               send1ToInvitee(row);
+               Log+="(+"+delay()+" s.) SENDING email to "+row.firstName+" "+row.lastName+". Group 1<br>";
+               break; 
+              case 2:
+               send2ToInvitee(row);
+               Log+="(+"+delay()+" s.) SENDING email to "+row.firstName+" "+row.lastName+". Group 2<br>";
+               break; 
+              default:
+               Log+="(+"+delay()+" s.) No Group set for "+row.firstName+" "+row.lastName+". ERROR<br>";
+             }     
+      // Update the state of the report to avoid email sending multiple emails
+      // to managers about the same report.
+      budget=budget-2;
+      sheet.getRange(row.id+2, COLUMN_STATE).setValue(row.state);
+      // Flush to update sheet, in case script breaks.
+      SpreadsheetApp.flush();    
+    } 
+    
+      //ReadReplies to see if that person replied
+      // Check if the person has accepted or rejected the invitation in the Reply Spreadsheet.
+      // We look that the tokens match. If they replied more than once, the last prevails.
+    if ((row.state == EMAIL_SENT) ) {
+      //Check for replies and send email
+      sendEmail =1 ;
+      readReplies(row);
+      sendEmail =0 ;
+    }
+    
+    //Case for row.state == REPLIED is taken out. It would check or NEW replies.
+    //Moved to checklNewReplies
+    
+    
+  } // for every person 
+  Log+="(+"+delay()+" s.) Ended execution.";
+  MailApp.sendEmail(Session.getUser().getEmail(),
+   "Output of Processing list",
+   "", 
+   {
+     htmlBody: Log,
+   //  attachments: pdf,
+     bcc: ITPERSON
+   });
+   
+    Browser.msgBox("Smile. I've finished ("+delay()+" s)");
 }
 
 function CheckNewReplies() {
-    // Track remaining email quota.
-    var budget = MailApp.getRemainingDailyQuota();
+   // Track remaining email quota.
+   var budget = MailApp.getRemainingDailyQuota();
 
-    // For every person
-    for (var i = 0; i < data.length; ++i) {
-
-        if (budget < 0) {
-            Browser.msgBox("Sorry, your account has reached your daily quote of emails.")
-            break;
-        }
-
-        var row = data[i];
-
-        if (row.state == REPLIED) {
-            //Check for new replies
-            readReplies(row);
-        }
-
+  // For every person
+  for (var i = 0; i < data.length; ++i) {
+    var row = data[i];
+    
+    if (row.state == REPLIED ) {
+      //Check for new replies
+      readReplies(row);
     }
-    // for every person
-    Log += "(+" + delay() + " s.) Ended execution.";
-    MailApp.sendEmail(Session.getUser().getEmail(),
-    "Output of Processing list",
-    "",
-    {
-        htmlBody: Log,
-        //  attachments: pdf,
-        bcc: ITPERSON
-    });
+    
+  } // for every person 
+  Log+="(+"+delay()+" s.) Ended execution.";
+  MailApp.sendEmail(Session.getUser().getEmail(),
+   "Output of Processing list",
+   "", 
+   {
+     htmlBody: Log,
+   //  attachments: pdf,
+     bcc: ITPERSON
+   });
+   
+    Browser.msgBox("Smile. I've finished ("+delay()+" s)");
+}
 
-    Browser.msgBox("Smile. I've finished (" + delay() + " s)");
+
+function CheckBadges() {
+  var c=0;
+  Log+="<table>";
+  Log+="<tr><th>###</th><th>Name</th><th>Company</th><th>9am</th><th>9lunch</th><th>9pm</th><th>Rec</th><th>10am</th><th>10lunch</th><th>10pm</th></tr>";
+  // For every person
+  for (var i = 0; i < data.length; ++i) {
+ 
+    
+    var row = data[i];
+    
+    if ((row.attending9Am == CONFIRMED)    || 
+        (row.attending9Lunch == CONFIRMED) || 
+        (row.attending9Pm == CONFIRMED)    || 
+        (row.attending9Recepcion==CONFIRMED)|| 
+        (row.attending10Am == CONFIRMED)   ||
+        (row.attending10Lunch == CONFIRMED)||
+        (row.attending10Pm == CONFIRMED)) {
+      c+=1;
+      Log+="<tr><td>"+c+"</td><td>"+ row.fullName+' </td><td>'
+      + (row.companyBadge || "")+"</td><td>"
+      +((row.attending9Am == CONFIRMED)? " 9am " : " ")+"</td><td>"
+      +((row.attending9Lunch == CONFIRMED)? " 9lun" : " ")+"</td><td>"
+      +((row.attending9Pm == CONFIRMED)? " 9pm " : " ")+"</td><td>"
+      +((row.attending9Recepcion == CONFIRMED)? " 9Rec" : " ")+"</td><td>"
+      +((row.attending10Am == CONFIRMED)? "10am " : " ")+"</td><td>"
+      +((row.attending10Lunch == CONFIRMED)? "10lun" : " ")+"</td><td>"
+      +((row.attending10Pm == CONFIRMED)? "10pm " : "")+"</td></tr>";
+      
+      //SendPreEventMail(row);
+    }
+    
+  } // for every person 
+  Log+="<table>";
+  Log+="(+"+delay()+" s.) Ended execution.";
+  MailApp.sendEmail(Session.getUser().getEmail(),
+   "Output of Processing list",
+   "", 
+   {
+     htmlBody: Log,
+   //  attachments: pdf,
+     bcc: ITPERSON
+   });
+   
+    Browser.msgBox("Smile. I've finished ("+delay()+" s)");
 }
 
 
 
-function SendNewInvites() {
-    // Track remaining email quota.
-    var budget = MailApp.getRemainingDailyQuota();
-
-    // For every person
-    for (var i = 0; i < data.length; ++i) {
-
-        if (budget < 0) {
-            Browser.msgBox("Sorry, your account has reached your daily quote of emails.")
-            break;
-        }
-
-        var row = data[i];
-
-        if (row.state == GO) {
-            Log += "(+" + delay() + " s.) SENDING email to " + row.firstName + " " + row.lastName + "<br>";
-            // empty means do nothing
-            // "Go" means this is a new invitee AND we want to send him an invite.
-            // Email the person to request his response.
-            sendToInvitee(row);
-            // Update the state of the report to avoid email sending multiple emails
-            // to managers about the same report.
-            --budget;
-            sheet.getRange(row.id + 2, COLUMN_STATE).setValue(row.state);
-            // Flush to update sheet, in case script breaks.
-            SpreadsheetApp.flush();
-
-        }
-
+function ReminderDocs() {
+  var c=0;
+  agenda = UrlFetchApp.fetch("URL to pdf, in Dropbox").getBlob().setName("Agenda.pdf"), //agenda
+  paper = UrlFetchApp.fetch("URL to pdf, in Dropbox").getBlob().setName("Discussion Paper.pdf"), // Paper
+  logistics = UrlFetchApp.fetch("URL to pdf, in Dropbox").getBlob().setName("Logistics.pdf") //logistics
+// For every person
+  for (var i = 0; i < data.length; ++i) {    
+    var row = data[i];
+    
+    if ((row.attending9Am == CONFIRMED)    || 
+        (row.attending9Lunch == CONFIRMED) || 
+        (row.attending9Pm == CONFIRMED)    || 
+        (row.attending10Am == CONFIRMED)   ||
+        (row.attending10Lunch == CONFIRMED)||
+        (row.attending10Pm == CONFIRMED)) {
+      
+      if (row.reminder == "No") {
+      sendEmail=1;
+      SendPreEventMail(row);
+      sendEmail=0
     }
-    // for every person
-    Log += "(+" + delay() + " s.) Ended execution.";
-    MailApp.sendEmail(Session.getUser().getEmail(),
-    "Output of Processing list",
-    "",
-    {
-        htmlBody: Log,
-        //  attachments: pdf,
-        bcc: ITPERSON
-    });
+    
+    }
+    
+  } // for every person 
+  Log+="(+"+delay()+" s.) Ended execution.";
 
-    Browser.msgBox("Smile. I've finished (" + delay() + " s)");
+  MailApp.sendEmail(Session.getUser().getEmail(),
+   "Output of Processing list",
+   "", 
+   {
+     htmlBody: Log,
+   //  attachments: pdf,
+     bcc: ITPERSON
+   });
+   
+    Browser.msgBox("Smile. I've finished ("+delay()+" s)");
+}
+
+
+
+function ThankYou() {
+  var c=0;
+// For every person
+  for (var i = 0; i < data.length; ++i) {    
+    var row = data[i];
+    
+    if ((row.attending9Am == CONFIRMED)    || 
+        (row.attending9Lunch == CONFIRMED) || 
+        (row.attending9Pm == CONFIRMED)    || 
+        (row.attending10Am == CONFIRMED)   ||
+        (row.attending10Lunch == CONFIRMED)||
+        (row.attending10Pm == CONFIRMED)) {
+      
+      if (row.thankYou == "go") {
+      sendEmail=1;
+      SendThankYouMail(row);
+      sendEmail=0
+    }
+    
+    }
+    
+  } // for every person 
+  Log+="(+"+delay()+" s.) Ended execution.";
+
+  MailApp.sendEmail(Session.getUser().getEmail(),
+   "Output of Processing list",
+   "", 
+   {
+     htmlBody: Log,
+   //  attachments: pdf,
+     bcc: ITPERSON
+   });
+   
+    Browser.msgBox("Smile. I've finished ("+delay()+" s)");
+}
+
+function ReminderReception() {
+  // For every person
+  for (var i = 0; i < data.length; ++i) {    
+    var row = data[i];
+    
+    if ((row.attending9Recepcion == CONFIRMED)) {
+      if (row.reminder == "No") {
+      sendEmail=1;
+      SendPreReceptionMail(row);
+      sendEmail=0;
+    }
+    
+    }
+    
+  } // for every person 
+  Log+="(+"+delay()+" s.) Ended execution.";
+}
+
+
+function PrepareMediaForms() {
+//create the personalized forms for everyone attending any session (aside reception)
+//saved on google docs.
+
+// For every person
+  for (var i = 0; i < data.length; ++i) {    
+    var row = data[i];
+    
+    if ((row.attending9Am == CONFIRMED)    || 
+        (row.attending9Lunch == CONFIRMED) || 
+        (row.attending9Pm == CONFIRMED)    || 
+        (row.attending10Am == CONFIRMED)   ||
+        (row.attending10Lunch == CONFIRMED)||
+        (row.attending10Pm == CONFIRMED)) {
+      form= PreparePermission(row);
+    }
+    
+  } // for every person 
+  Log+="(+"+delay()+" s.) Ended execution.";
+  MailApp.sendEmail(Session.getUser().getEmail(),
+   "Output of Processing list",
+   "", 
+   {
+     htmlBody: Log,
+   //  attachments: pdf,
+     bcc: ITPERSON
+   });
+   
+    Browser.msgBox("Smile. I've finished ("+delay()+" s)");
 }
 
 
@@ -220,281 +359,458 @@ function SendNewInvites() {
 
 
 function readReplies(row) {
-    // Open the Responses Spreadsheet and fetch responses.
-    switch (row.group)
-    {
+ // Open the Responses Spreadsheet and fetch responses.
+  switch(row.group)
+  {
     case 1:
-        ReplyData = ReplyData1;
-        break;
+      ReplyData = ReplyData1;
+      break;  
     default:
-        ReplyData = ReplyData2;
-    }
-
-
-    //Gather info into Master list. Last reply counts
-    for (var j = 0; j < ReplyData.length; ++j) {
-        var reply = ReplyData[j];
-        if (reply !== undefined)
+      ReplyData = ReplyData2;
+  }  
+  //Gather info into Master list. Last reply counts
+  for (var j =0 ; j < ReplyData.length ; ++j) {
+  var reply = ReplyData[j];
+    if (reply !== undefined)
         {
-            if (row.token == reply.token) {
-                // Identify replies using the tokens
-                switch (row.group)
-                {
-                case 1:
-                    Results1(row, reply);
-                    Log += "(+" + delay() + " s.) Found response from " + row.firstName + " " + row.lastName + ". Group 1.<br>";
-                    break;
-                default:
-                    Results2(row, reply);
-                    Log += "(+" + delay() + " s.) Found response from " + row.firstName + " " + row.lastName + ". Group default(2).<br>";
-                }
-                // Flush to update sheet, in case script breaks.
+          if ((row.token == reply.token) && (row.state == EMAIL_SENT)) {
+            // Identify replies using the tokens
+            switch(row.group)
+            {
+              case 1:
+               Results1(row, reply);
+               Log+="(+"+delay()+" s.) Found response from "+row.firstName+" "+row.lastName+". Group 1.<br>";
+               break; 
+              case 2:
+              Results2(row, reply);
+              Log+="(+"+delay()+" s.) Found response from "+row.firstName+" "+row.lastName+". Group 2.<br>";
+              break; 
+              default:
+              Log+="(+"+delay()+" s.) No Group set for "+row.firstName+" "+row.lastName+". ERROR<br>";
+             
             }
+            // Flush to update sheet, in case script breaks.
+          }
         }
-    }
+       }
 }
 
 //time execution delays
-function delay() {
-    var delay = new Date().getTime() - Timestamp;
-    return delay / 1000.;
+function delay(){
+var delay=new Date().getTime()-Timestamp; 
+return delay/1000.;
 }
 
 
 // Sends an email to the manager to communicate the person's decision.
 function Results1(row, reply) {
-    //process replied into sheet
-
-    //update info if different on master list
-    updateInfo(row, reply, COLUMN_PREFIX, reply.prefix);
-    updateInfo(row, reply, COLUMN_FIRST, reply.firstName);
-    updateInfo(row, reply, COLUMN_LAST, reply.lastName);
-    updateInfo(row, reply, COLUMN_COMPANY, reply.companyorganization);
-    updateInfo(row, reply, COLUMN_TITLE, reply.title);
-
-    //add comments
-    sheet.getRange(row.id + 2, COLUMN_COMMENTS).setValue((reply.comments || ""));
-
-    //process block replies
-    processReplyall(row, reply, reply.annualMeetingScientificConvening);
-
-
-    //process individual replies
-    processReply(row, reply, COLUMN_9AM, reply.attendingMay9MorningSession);
-    processReply(row, reply, COLUMN_9LUNCH, reply.attendingMay9Lunch);
-    processReply(row, reply, COLUMN_9PM, reply.attendingMay9AfternoonSession);
-    processReply(row, reply, COLUMN_RECEPTION, reply.attendingMay9Reception);
-    processReply(row, reply, COLUMN_10AM, reply.attendingMay10MorningSession);
-    processReply(row, reply, COLUMN_10LUNCH, reply.attendingMay10Lunch);
-    processReply(row, reply, COLUMN_10PM, reply.attendingMay10AfternoonSession);
-
-    //email response if first REPLY ONLY.
-    if (sendEmail == 1) {
-        var message = "<HTML><BODY>"
-        + "<br><p align='left'> April " + Utilities.formatDate(new Date(), 'GMT', 'd, yyyy') + "</p>"
-        + "<p>Dear " + reply.prefix + " " + reply.lastName + ", <p> "
-        + '<p>Thank you for your RSVP to event</p>'
-        + "</HTML></BODY>";
-        //var pdf = DocsList.getFileById(EVENT_DOC).getAs("application/pdf");
-        //pdf.setName("Invitation for "+ row.firstName + " " +row.lastName);
-        Log += "(+" + delay() + " s.) SENDING confirmation for " + row.firstName + " " + row.lastName + ". Group 1.<br>";
-        MailApp.sendEmail(row.email,
-        "Response confirmed",
-        "",
-        {
-            htmlBody: message,
-            //  attachments: pdf,
-            bcc: MANAGER_EMAIL
-        });
-        sheet.getRange(row.id + 2, COLUMN_STATE).setValue(REPLIED);
-        row.state = REPLIED;
-    }
-    SpreadsheetApp.flush();
+  //process replied into sheet
+  
+  
+  //update info if differenct on master list
+  updateInfo(row,reply,COLUMN_PREFIX,reply.prefix);
+  updateInfo(row,reply,COLUMN_FIRST,reply.firstName);
+  updateInfo(row,reply,COLUMN_LAST,reply.lastName);
+  updateInfo(row,reply,COLUMN_COMPANY,reply.companyorganization);
+  updateInfo(row,reply,COLUMN_TITLE,reply.title);
+  
+  //add comments
+  sheet.getRange(row.id+2, COLUMN_COMMENTS).setValue((reply.comments || ""));
+   
+  //process block replies
+  processReplyall(row,reply,reply.annualMeetingScientificConvening);
+  
+  
+  //process individual replies
+  processReply(row,reply,COLUMN_9AM,reply.attendingMay9MorningSession);
+  processReply(row,reply,COLUMN_9LUNCH,reply.attendingMay9Lunch);
+  processReply(row,reply,COLUMN_9PM,reply.attendingMay9AfternoonSession);
+  processReply(row,reply,COLUMN_RECEPTION,reply.attendingMay9Reception);
+  processReply(row,reply,COLUMN_10AM,reply.attendingMay10MorningSession);
+  processReply(row,reply,COLUMN_10LUNCH,reply.attendingMay10Lunch);
+  processReply(row,reply,COLUMN_10PM,reply.attendingMay10AfternoonSession);
+  
+  //email response if first REPLY ONLY.
+  if (sendEmail==1) {
+   var message = "<HTML><BODY>"
+    + '<img align="middle" width="150px" src="http://gain.org/images/gainlogo.png"><br>'
+    + "<br><p align='left'> April "+Utilities.formatDate(new Date(), 'GMT', 'd, yyyy')+"</p>"
+    + "<p>Dear " + reply.prefix + " " + reply.lastName + ", <p> "
+    + '<p>Thank you for your RSVP!</p>'
+    + '<p>Be sure to visit our event <a href="http://gain.org/annual-meeting-2012">website</a> for more information. We will regularly update the list of participants and the agenda.</p>'  
+    + '<p> RESTO OF THE EMAIL'
+    + "</HTML></BODY>";
+   Log+="(+"+delay()+" s.) SENDING confirmation for "+row.firstName+" "+row.lastName+". Group 1.<br>";
+    MailApp.sendEmail(row.email,
+   "Response confirmed: Global Adaptation Institute (GAIN) 2012 Annual Meeting & Scientific Convening",
+   "", 
+   {
+     htmlBody: message,
+   //  attachments: pdf,
+     bcc: MANAGER_EMAIL
+   });
+   sheet.getRange(row.id+2, COLUMN_STATE).setValue(REPLIED);
+   row.state = REPLIED;
+   }
+   SpreadsheetApp.flush();
 }
 
+
+
+// Sends an email to the anyone coming to the reception only.
+function SendPreReceptionMail(row) {
+  //process replied into sheet
+
+  //email response if first REPLY ONLY.
+  if (sendEmail==1) {
+   var message = "<HTML><BODY>"
+    + '<img align="middle" width="150px" src="http://gain.org/images/gainlogo.png"><br>'
+    + "<br><p align='left'> May 8, "+Utilities.formatDate(new Date(), 'GMT', 'yyyy')+"</p>"
+    + "<p>Dear " + row.prefix + " " + row.lastName + ", <p> "
+    + '<p>We look forward to your attendance'
+    + '<p><b>Please note below ...REST OF EMAIL'
+    + "</HTML></BODY>";
+   
+   
+   Log+="(+"+delay()+" s.) SENDING reminder for "+row.firstName+" "+row.lastName+". Group 1.<br>";
+    
+   MailApp.sendEmail(row.email,
+   "Global Adaptation Institute (GAIN) 2012 Annual Reception",
+   "", 
+   {
+     htmlBody: message,
+     bcc: MANAGER_EMAIL
+   });
+   sheet.getRange(row.id+2, COLUMN_REMINDER).setValue("Yes");
+   row.reminder = "Yes";
+   }
+   SpreadsheetApp.flush();
+}
+
+
+
+
+// Sends an email to the anyone coming to at least one session.
+function SendPreEventMail(row) {
+  //process replied into sheet
+
+  
+  //email response if first REPLY ONLY.
+  if (sendEmail==1) {
+   var message = "<HTML><BODY>"
+    + '<img align="middle" width="150px" src="http://gain.org/images/gainlogo.png"><br>'
+    + "<br><p align='left'> May 7, "+Utilities.formatDate(new Date(), 'GMT', 'yyyy')+"</p>"
+    + "<p>Dear " + row.prefix + " " + row.lastName + ", <p> "
+    + '<p>We look forward to your participation in the <a href="http://gain.org/annual-meeting-2012">2012 Annual Meeting & Scientific Convening</a> of the Global Adaptation Institute (GAIN) May 9-10.</p>'
+    
+    + '<p><b>Please note REST OF THE EMAIL'
+    
+    + "<p>In preparation for the event, please find attached the:"
+    + "<ul><li>GAIN 2012 Annual Meeting & Scientific Convening Agenda"
+    + "<li>GAIN Index 2012 Discussion Paper</ul>"
+    + "(No need to print - it will be part of your welcome package.)"    
+    + '<p> Our records indicate that you have confirmed for the following sessions. Please advise us of any changes by replying to this email.<p> <ol>'
+    +((row.attending9Am == CONFIRMED)? "<li> May 9 morning" : "")
+    +((row.attending9Lunch == CONFIRMED)? "<li> May 9 lunch" : "")
+    +((row.attending9Pm == CONFIRMED)? "<li> May 9 afternoon" : "")
+    +((row.attending9Recepcion == CONFIRMED)? "<li> May 9 Reception" : "")
+    +((row.attending10Am == CONFIRMED)? "<li> May 10 morning" : "")
+    +((row.attending10Lunch == CONFIRMED)? "<li> May 10 lunch" : "")
+    +((row.attending10Pm == CONFIRMED)? "<li> May 10 afternoon" : "")
+    + '</ol><p>'
+    +((row.vegetarian == "Vegetarian")? "(We have also noted you as a vegetarian.)": "")
+    + "<p> REST OF THE EMAIL"
+    + "</HTML></BODY>";
+   
+   
+   Log+="(+"+delay()+" s.) SENDING reminder for "+row.firstName+" "+row.lastName+". Group 1.<br>";
+     
+   MailApp.sendEmail(row.email,
+   "Event documents: Global Adaptation Institute (GAIN) 2012 Annual Meeting & Scientific Convening",
+   "", 
+   {
+     htmlBody: message,
+     attachments: 
+       [
+        agenda, //agenda
+        paper, // Paper
+        logistics //logistics
+       ],
+     bcc: MANAGER_EMAIL
+   });
+   sheet.getRange(row.id+2, COLUMN_REMINDER).setValue("Yes");
+   row.reminder = "Yes";
+   }
+   SpreadsheetApp.flush();
+}
+
+
+// Sends an email to the anyone that came to at least one session.
+function SendThankYouMail(row) {
+  //process replied into sheet
+
+  
+  //email response if first REPLY ONLY.
+  if (sendEmail==1) {
+   var message = "<HTML><BODY>"
+    + '<img align="middle" width="150px" src="http://gain.org/images/gainlogo.png"><br>'
+    + "<br><p align='left'> May "+Utilities.formatDate(new Date(), 'GMT', 'dd, yyyy')+"</p>"
+    + "<p>Dear " + row.firstName + ", <p> "
+    + 'We are pleased that you were able to join ...REST OF THE EMAIL'
+    + "</HTML></BODY>";
+   
+   
+   Log+="(+"+delay()+" s.) SENDING thank you for "+row.firstName+" "+row.lastName+". Group 1.<br>";
+     
+   MailApp.sendEmail(row.email,
+   "Thank you for your participation in the GAIN 2012 Annual Meeting & Scientific Convening!",
+   "", 
+   {
+     htmlBody: message,
+     bcc: MANAGER_EMAIL
+   });
+   sheet.getRange(row.id+2, COLUMN_THANKYOU).setValue("Yes");
+   row.thankYou = "Yes";
+   }
+   SpreadsheetApp.flush();
+}
+
+function PreparePermission(row){
+
+// Full name and email address values come from the spreadsheet form
+   var full_name = row.firstName+" "+row.lastName
+   var docName = "Media Permission form"
+// Get document template, copy it as a new temp doc, and save the Doc’s id
+   var copyId   = DocsList.getFileById(PERMISION_FORM)
+                  .makeCopy(docName+' for '+full_name)
+                  .getId();
+   var copyDoc  = DocumentApp.openById(copyId);
+   var copyBody = copyDoc.getActiveSection();
+// Replace place holder keys,  
+   copyBody.replaceText('Name:', 'Name: '+row.prefix+" "+full_name);
+// Save and close the temporary document
+   copyDoc.saveAndClose();
+// Convert temporary document to PDF by using the getAs blob conversion
+   var pdf = DocsList.getFileById(copyId).getAs("application/pdf"); 
+   Log+="Media permission form for "+full_name+"<br>";
+   return pdf;
+}
 
 
 function Results2(row, reply) {
-    //process replied into sheet
-
-    //update info if different on master list
-    updateInfo(row, reply, COLUMN_PREFIX, reply.prefix);
-    updateInfo(row, reply, COLUMN_FIRST, reply.firstName);
-    updateInfo(row, reply, COLUMN_LAST, reply.lastName);
-    updateInfo(row, reply, COLUMN_COMPANY, reply.companyorganization);
-    updateInfo(row, reply, COLUMN_TITLE, reply.title);
-
-    //add comments
-    sheet.getRange(row.id + 2, COLUMN_COMMENTS).setValue((reply.comments || ""));
-
-    //process  reply
-    processReply(row, reply, COLUMN_RECEPTION, reply.attendingMay9Reception);
-
-
-    //email response if first REPLY ONLY.
-    if (sendEmail == 1) {
-        var message = "<HTML><BODY>"
-        + "<br><p align='left'> April " + Utilities.formatDate(new Date(), 'GMT', 'd, yyyy') + "</p>"
-        + "<p>Dear " + reply.prefix + " " + reply.lastName + ", <p> "
-        + '<p>Thank you for your RSVP to event</p>'
-        + "</HTML></BODY>";
-        //var pdf = DocsList.getFileById(EVENT_DOC).getAs("application/pdf");
-        //pdf.setName("Invitation for "+ row.firstName + " " +row.lastName);
-        Log += "(+" + delay() + " s.) SENDING confirmation for " + row.firstName + " " + row.lastName + ". Group 2.<br>";
-        MailApp.sendEmail(row.email,
-        "Response confirmed",
-        "",
-        {
-            htmlBody: message,
-            //  attachments: pdf,
-            bcc: MANAGER_EMAIL
-        });
-        sheet.getRange(row.id + 2, COLUMN_STATE).setValue(REPLIED);
-        row.state = REPLIED;
-    }
-    SpreadsheetApp.flush();
+  //process replied into sheet
+  
+  
+  //update info if differenct on master list
+  updateInfo(row,reply,COLUMN_PREFIX,reply.prefix);
+  updateInfo(row,reply,COLUMN_FIRST,reply.firstName);
+  updateInfo(row,reply,COLUMN_LAST,reply.lastName);
+  updateInfo(row,reply,COLUMN_COMPANY,reply.companyorganization);
+  updateInfo(row,reply,COLUMN_TITLE,reply.title);
+  
+  //add comments
+  sheet.getRange(row.id+2, COLUMN_COMMENTS).setValue((reply.comments || ""));
+   
+  //process  reply
+  processReply(row,reply,COLUMN_RECEPTION,reply.attendingReception);
+  if ( reply.attendingReception == "No" ){
+  sendEmail=0;
+  }
+  
+  //email response if first REPLY ONLY.
+  if (sendEmail==1) {
+   var message = "<HTML><BODY>"
+    + '<img align="middle" width="150px" src="http://gain.org/images/gainlogo.png"><br>'
+    + "<br><p align='left'> April "+Utilities.formatDate(new Date(), 'GMT', 'd, yyyy')+"</p>"
+    + "<p>Dear " + reply.prefix + " " + reply.lastName + ", <p> "
+    + '<p>Thank you for your RSVP to the 2012 GAIN Annual Reception</p>' 
+    + '<p>Please visit our event <a href="http://gain.org/annual-reception-2012">website</a> for more information and contact Andrea Urbina with questions at <br>202-559-4549 or aurbina@gain.org. We look forward to seeing you May 9 at the Metropolitan <br>Club in Washington, D.C.</p>'
+    + '<p>'   
+    + '<p> Juan José Daboub, Founding CEO</p>' 
+    + '<p> Global Adaptation Institute | gain.org <br> 1747 Pennsylvania Ave. NW, Suite 1125 <br> Washington, DC &nbsp;20006 <br> 1-202-559-4549'
+    + "</HTML></BODY>";
+   //var pdf = DocsList.getFileById(EVENT_DOC).getAs("application/pdf");
+   //pdf.setName("Invitation May 9 and 10, 2012 for "+ row.firstName + " " +row.lastName);
+   Log+="(+"+delay()+" s.) SENDING confirmation for "+row.firstName+" "+row.lastName+". Group 2.<br>";
+    MailApp.sendEmail(row.email,
+   "Response confirmed: Global Adaptation Institute (GAIN) 2012 Annual Reception",
+   "", 
+   {
+     htmlBody: message,
+   //  attachments: pdf,
+     bcc: MANAGER_EMAIL
+   });
+   }
+   sheet.getRange(row.id+2, COLUMN_STATE).setValue(REPLIED);
+   row.state = REPLIED;
+   SpreadsheetApp.flush();
 }
 
 
-function processReplyall(row, reply, fieldanswer) {
+function processReplyall(row,reply,fieldanswer){
 
-    if (fieldanswer == ALLYES) {
-        processReply(row, reply, COLUMN_9AM, "Yes");
-        processReply(row, reply, COLUMN_9LUNCH, "Yes");
-        processReply(row, reply, COLUMN_9PM, "Yes");
-        processReply(row, reply, COLUMN_RECEPTION, "Yes");
-        processReply(row, reply, COLUMN_10AM, "Yes");
-        processReply(row, reply, COLUMN_10LUNCH, "Yes");
-        processReply(row, reply, COLUMN_10PM, "Yes");
-        sheet.getRange(row.id + 2, COLUMN_COMMENTS).setValue(((reply.comments || "") + ". via ALL YES"));
-    }
+if (fieldanswer == ALLYES){
+  processReply(row,reply,COLUMN_9AM,"Yes");
+  processReply(row,reply,COLUMN_9LUNCH,"Yes");
+  processReply(row,reply,COLUMN_9PM,"Yes");
+  processReply(row,reply,COLUMN_RECEPTION,"Yes");
+  processReply(row,reply,COLUMN_10AM,"Yes");
+  processReply(row,reply,COLUMN_10LUNCH,"Yes");
+  processReply(row,reply,COLUMN_10PM,"Yes");
+  sheet.getRange(row.id+2, COLUMN_COMMENTS).setValue(((reply.comments || "") + ". via ALL YES"));
+  }
 
-    if (fieldanswer == ALLNO) {
-        processReply(row, reply, COLUMN_9AM, "No");
-        processReply(row, reply, COLUMN_9LUNCH, "No");
-        processReply(row, reply, COLUMN_9PM, "No");
-        processReply(row, reply, COLUMN_RECEPTION, "No");
-        processReply(row, reply, COLUMN_10AM, "No");
-        processReply(row, reply, COLUMN_10LUNCH, "No");
-        processReply(row, reply, COLUMN_10PM, "No");
-        sheet.getRange(row.id + 2, COLUMN_COMMENTS).setValue(((reply.comments || "") + ". via ALL NO"));
-        sendEmail = 0;
-        sheet.getRange(row.id + 2, COLUMN_STATE).setValue(DECLINED);
-        row.state = DECLINED;
-        SpreadsheetApp.flush();
-    }
+if (fieldanswer == ALLNO){
+  processReply(row,reply,COLUMN_9AM,"No");
+  processReply(row,reply,COLUMN_9LUNCH,"No");
+  processReply(row,reply,COLUMN_9PM,"No");
+  processReply(row,reply,COLUMN_RECEPTION,"No");
+  processReply(row,reply,COLUMN_10AM,"No");
+  processReply(row,reply,COLUMN_10LUNCH,"No");
+  processReply(row,reply,COLUMN_10PM,"No");
+  sheet.getRange(row.id+2, COLUMN_COMMENTS).setValue(((reply.comments || "") + ". via ALL NO"));
+  sendEmail=0;
+  sheet.getRange(row.id+2, COLUMN_STATE).setValue(DECLINED);
+  row.state = DECLINED;
+  SpreadsheetApp.flush();
+  }
 
-    if (fieldanswer == YES9) {
-        processReply(row, reply, COLUMN_9AM, "Yes");
-        processReply(row, reply, COLUMN_9LUNCH, "Yes");
-        processReply(row, reply, COLUMN_9PM, "Yes");
-        processReply(row, reply, COLUMN_RECEPTION, "Yes");
-        processReply(row, reply, COLUMN_10AM, "No");
-        processReply(row, reply, COLUMN_10LUNCH, "No");
-        processReply(row, reply, COLUMN_10PM, "No");
-        sheet.getRange(row.id + 2, COLUMN_COMMENTS).setValue(((reply.comments || "") + ". via ALL to 9"));
-    }
-
-    if (fieldanswer == YES10) {
-        processReply(row, reply, COLUMN_9AM, "No");
-        processReply(row, reply, COLUMN_9LUNCH, "No");
-        processReply(row, reply, COLUMN_9PM, "No");
-        processReply(row, reply, COLUMN_RECEPTION, "No");
-        processReply(row, reply, COLUMN_10AM, "Yes");
-        processReply(row, reply, COLUMN_10LUNCH, "Yes");
-        processReply(row, reply, COLUMN_10PM, "Yes");
-        sheet.getRange(row.id + 2, COLUMN_COMMENTS).setValue(((reply.comments || "") + ". via via ALL to 10"));
-    }
-
-
+if (fieldanswer == YES9){
+  processReply(row,reply,COLUMN_9AM,"Yes");
+  processReply(row,reply,COLUMN_9LUNCH,"Yes");
+  processReply(row,reply,COLUMN_9PM,"Yes");
+  processReply(row,reply,COLUMN_RECEPTION,"Yes");
+  processReply(row,reply,COLUMN_10AM,"No");
+  processReply(row,reply,COLUMN_10LUNCH,"No");
+  processReply(row,reply,COLUMN_10PM,"No");
+  sheet.getRange(row.id+2, COLUMN_COMMENTS).setValue(((reply.comments || "") + ". via ALL to 9"));
+  }
+  
+if (fieldanswer == YES10){
+  processReply(row,reply,COLUMN_9AM,"No");
+  processReply(row,reply,COLUMN_9LUNCH,"No");
+  processReply(row,reply,COLUMN_9PM,"No");
+  processReply(row,reply,COLUMN_RECEPTION,"No");
+  processReply(row,reply,COLUMN_10AM,"Yes");
+  processReply(row,reply,COLUMN_10LUNCH,"Yes");
+  processReply(row,reply,COLUMN_10PM,"Yes");
+  sheet.getRange(row.id+2, COLUMN_COMMENTS).setValue(((reply.comments || "") + ". via via ALL to 10"));
+  }
 }
 
 
-function processReply(row, reply, column, fieldanswer) {
-    switch (fieldanswer)
-    {
+function processReply(row,reply,column,fieldanswer) {
+  switch(fieldanswer)
+  {
     case "Yes":
-        sheet.getRange(row.id + 2, column).setValue(CONFIRMED);
-        break;
+      sheet.getRange(row.id+2, column).setValue(CONFIRMED);
+      break;
     case "No":
-        sheet.getRange(row.id + 2, column).setValue(REFUSED);
-        break;
+      sheet.getRange(row.id+2, column).setValue(REFUSED);
+      break;   
     case "See comments":
-        sheet.getRange(row.id + 2, column).setValue(OTHER);
-        break;
+      sheet.getRange(row.id+2, column).setValue(OTHER);
+      break;
     case "See comments (Meal restrictions?)":
-        sheet.getRange(row.id + 2, column).setValue(OTHER);
-        break;
+      sheet.getRange(row.id+2, column).setValue(OTHER);
+      break;
     default:
-        //sheet.getRange(row.id+2, column).setValue("??");
-    }
+      //sheet.getRange(row.id+2, column).setValue("??");
+  }
 }
 
-function updateInfo(row, reply, column, fieldanswer) {
-    var current = sheet.getRange(row.id + 2, column).getValue();
-    var updated = (fieldanswer || current);
-
-    if (current != updated) {
-        // means update field
-        sheet.getRange(row.id + 2, column).setValue(updated);
-
-        sheet.getRange(row.id + 2, column).setBackgroundColor('green');
-    }
+function updateInfo(row,reply,column,fieldanswer) {
+  var current= sheet.getRange(row.id+2, column).getValue();
+  var updated= (fieldanswer || current);
+  
+  if (current != updated) {
+      // update field
+      sheet.getRange(row.id+2, column).setValue(updated);
+      
+      sheet.getRange(row.id+2, column).setBackgroundColor('green');
+  }
 }
 
 
 // Sends an email to a person to request his reply.
-function sendToInvitee(row) {
-    var message = "<HTML><BODY>"
-    + "<br><p align='left'> April " + Utilities.formatDate(new Date(), 'GMT', 'd, yyyy') + "</p>"
+function send1ToInvitee(row) {
+  var message = "<HTML><BODY>"
+    + '<img align="middle" width="150px" src="http://gain.org/images/gainlogo.png"><br>'
+    + "<br><p align='left'> April "+Utilities.formatDate(new Date(), 'GMT', 'd, yyyy')+"</p>"
     + "<br><p>Dear " + row.prefix + " " + row.lastName + ", <p> "
-    + '<P>It is an honor to invite you to EVENT <br>'
-    + '<P>Please RSVP at your <a href="'
+    + '<P>It is an honor to invite you to ...REST OF EMAIL'
+    + ' Please RSVP at your <a href="'
     + construct_URL(row)
-    + '"> personalized form</a>. </p>'
+    + '"> personalized form</a>. </p>' 
+    + '<P> REST OF EMAIL'
     + "</HTML></BODY>";
-    MailApp.sendEmail(row.email,
-    "RSVP Requested",
-    "",
-    {
-        htmlBody: message,
-        bcc: MANAGER_EMAIL
-    });
-    row.state = EMAIL_SENT;
+  MailApp.sendEmail(row.email, 
+  "RSVP Requested: Global Adaptation Institute (GAIN) 2012 Annual Meeting & Scientific Convening", 
+  "", 
+{
+  htmlBody: message,
+  bcc: MANAGER_EMAIL
+  });
+  row.state = EMAIL_SENT;
+  sheet.getRange(row.id+2, COLUMN_STATE).setValue(EMAIL_SENT);
 }
+
+
+function send2ToInvitee(row) {
+  var message = "<HTML><BODY>"
+    + '<img align="middle" width="150px" src="http://gain.org/images/gainlogo.png"><br>'
+    + "<br><p align='left'> April "+Utilities.formatDate(new Date(), 'GMT', 'd, yyyy')+"</p>"
+    + "<br><p>Dear " + row.prefix + " " + row.lastName + ", <p> "
+    + '<P>It is an honor to invite you to ...REST OF EMAIL'
+    + ' Please RSVP at your <a href="'
+    + construct_URL(row)
+    + '"> personalized form</a>. </p>' 
+    + '<P> REST OF EMAIL'
+    + "</HTML></BODY>";
+  MailApp.sendEmail(row.email, 
+  "RSVP Requested: Global Adaptation Institute (GAIN) 2012 Annual Reception", 
+  "", 
+{
+  htmlBody: message,
+  bcc: MANAGER_EMAIL
+  });
+  row.state = EMAIL_SENT;
+  sheet.getRange(row.id+2, COLUMN_STATE).setValue(EMAIL_SENT);
+}
+
 
 //construct URL for responses
 function construct_URL(row)
- {
-    switch (row.group)
-    {
+{
+ switch(row.group)
+  {
     case 1:
-        var RESPONSES_URL = RESPONSES_GROUP1_URL;
-        var AUTOFILL = "&entry_6=" + (row.prefix || " ")
-        + "&entry_0=" + row.firstName
-        + "&entry_7=" + row.lastName
-        + "&entry_8=" + (row.company || " ")
-        + "&entry_9=" + (row.title || " ")
-        + "&entry_5=" + row.token;
-        break;
+      var RESPONSES_URL = RESPONSES_GROUP1_URL;
+      var AUTOFILL = "&entry_6="+ (row.prefix|| " ")
+      + "&entry_0="+row.firstName
+      + "&entry_7="+row.lastName
+      + "&entry_8="+(row.company || " ")
+      + "&entry_9="+(row.title || " ")
+      + "&entry_5="+row.token;
+      break;
     default:
-        var RESPONSES_URL = RESPONSES_GROUP2_URL;
-        var AUTOFILL = "&entry_6=" + row.prefix
-        + "&entry_0=" + row.firstName
-        + "&entry_7=" + row.lastName
-        + "&entry_8=" + row.company
-        + "&entry_9=" + row.title
-        + "&entry_5=" + row.token;
-    }
+      var RESPONSES_URL = RESPONSES_GROUP2_URL;
+      var AUTOFILL = "&entry_6="+row.prefix
+      + "&entry_0="+row.firstName
+      + "&entry_7="+row.lastName
+      + "&entry_8="+row.company
+      + "&entry_9="+row.title
+      + "&entry_5="+row.token;
+  }
+  
+  var url = RESPONSES_URL + AUTOFILL;
 
-    var url = RESPONSES_URL + AUTOFILL;
-
-    return url;
+return url;
 }
 
 
-function clearRedFlags() {
-    sheet.getRange(PEOPLEBLOCK).setBackgroundColor('white');
+function clearRedFlags(){
+sheet.getRange(PEOPLEBLOCK).setBackgroundColor('white');
 }
 
 
@@ -509,16 +825,16 @@ function clearRedFlags() {
 //       This argument is optional and it defaults to all the cells except those in the first row
 //       or all the cells below columnHeadersRowIndex (if defined).
 //   - columnHeadersRowIndex: specifies the row number where the column names are stored.
-//       This argument is optional and it defaults to the row immediately above range;
+//       This argument is optional and it defaults to the row immediately above range; 
 // Returns an Array of objects.
 function getRowsData(sheet, range, columnHeadersRowIndex) {
-    var headersIndex = columnHeadersRowIndex || range ? range.getRowIndex() - 1: 1;
-    var dataRange = range ||
+  var headersIndex = columnHeadersRowIndex || range ? range.getRowIndex() - 1 : 1;
+  var dataRange = range || 
     sheet.getRange(headersIndex + 1, 1, sheet.getMaxRows() - headersIndex, sheet.getMaxColumns());
-    var numColumns = dataRange.getEndColumn() - dataRange.getColumn() + 1;
-    var headersRange = sheet.getRange(headersIndex, dataRange.getColumn(), 1, numColumns);
-    var headers = headersRange.getValues()[0];
-    return getObjects(dataRange.getValues(), normalizeHeaders(headers));
+  var numColumns = dataRange.getEndColumn() - dataRange.getColumn() + 1;
+  var headersRange = sheet.getRange(headersIndex, dataRange.getColumn(), 1, numColumns);
+  var headers = headersRange.getValues()[0];
+  return getObjects(dataRange.getValues(), normalizeHeaders(headers));
 }
 // For every row of data in data, generates an object that contains the data. Names of
 // object fields are defined in keys.
@@ -526,36 +842,37 @@ function getRowsData(sheet, range, columnHeadersRowIndex) {
 //   - data: JavaScript 2d array
 //   - keys: Array of Strings that define the property names for the objects to create
 function getObjects(data, keys) {
-    var objects = [];
-    for (var i = 0; i < data.length; ++i) {
-        var object = {};
-        var hasData = false;
-        for (var j = 0; j < data[i].length; ++j) {
-            var cellData = data[i][j];
-            if (isCellEmpty(cellData)) {
-                continue;
-            }
-            object[keys[j]] = cellData;
-            hasData = true;
-        }
-        if (hasData) {
-            objects.push(object);
-        }
+  var objects = [];
+  for (var i = 0; i < data.length; ++i) {
+    var object = {};
+    var hasData = false;
+    for (var j = 0; j < data[i].length; ++j) {
+      var cellData = data[i][j];
+      if (isCellEmpty(cellData)) {
+        continue;
+      }
+      object[keys[j]] = cellData;
+      hasData = true;
     }
-    return objects;
+    if (hasData) {
+      objects.push(object);
+    }
+  }
+  return objects;
 }
-// Returns an Array of normalized Strings.
+// Returns an Array of normalized Strings. 
 // Empty Strings are returned for all Strings that could not be successfully normalized.
 // Arguments:
 //   - headers: Array of Strings to normalize
 function normalizeHeaders(headers) {
-    var keys = [];
-    for (var i = 0; i < headers.length; ++i) {
-        keys.push(normalizeHeader(headers[i]));
-    }
-    return keys;
+  var keys = [];
+  for (var i = 0; i < headers.length; ++i) {
+    keys.push(normalizeHeader(headers[i]));
+  }
+  return keys;
 }
-// Normalizes a string, by removing all alphanumeric characters and using mixed case
+
+//  Normalizes a string, by removing all alphanumeric characters and using mixed case
 // to separate words. The output will always start with a lower case letter.
 // This function is designed to produce JavaScript object property names.
 // Arguments:
@@ -565,66 +882,55 @@ function normalizeHeaders(headers) {
 //   "Market Cap (millions) -> "marketCapMillions
 //   "1 number at the beginning is ignored" -> "numberAtTheBeginningIsIgnored"
 function normalizeHeader(header) {
-    var key = "";
-    var upperCase = false;
-    for (var i = 0; i < header.length; ++i) {
-        var letter = header[i];
-        if (letter == " " && key.length > 0) {
-            upperCase = true;
-            continue;
-        }
-        if (!isAlnum(letter)) {
-            continue;
-        }
-        if (key.length == 0 && isDigit(letter)) {
-            continue;
-            // first character must be a letter
-        }
-        if (upperCase) {
-            upperCase = false;
-            key += letter.toUpperCase();
-        } else {
-            key += letter.toLowerCase();
-        }
+  var key = "";
+  var upperCase = false;
+  for (var i = 0; i < header.length; ++i) {
+    var letter = header[i];
+    if (letter == " " && key.length > 0) {
+      upperCase = true;
+      continue;
     }
-    return key;
+    if (!isAlnum(letter)) {
+      continue;
+    }
+    if (key.length == 0 && isDigit(letter)) {
+      continue; // first character must be a letter
+    }
+    if (upperCase) {
+      upperCase = false;
+      key += letter.toUpperCase();
+    } else {
+      key += letter.toLowerCase();
+    }
+  }
+  return key;
 }
 // Returns true if the cell where cellData was read from is empty.
 // Arguments:
 //   - cellData: string
 function isCellEmpty(cellData) {
-    return typeof(cellData) == "string" && cellData == "";
+  return typeof(cellData) == "string" && cellData == "";
 }
 // Returns true if the character char is alphabetical, false otherwise.
 function isAlnum(char) {
-    return char >= 'A' && char <= 'Z' ||
+  return char >= 'A' && char <= 'Z' ||
     char >= 'a' && char <= 'z' ||
     isDigit(char);
 }
 // Returns true if the character char is a digit, false otherwise.
 function isDigit(char) {
-    return char >= '0' && char <= '9';
+  return char >= '0' && char <= '9';
 }
 
 function onOpen() {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var menuEntries = [
-    {
-        name: "Process Invitations",
-        functionName: "ProcessList"
-    },
-    {
-        name: "Clear flags for name updates",
-        functionName: "clearRedFlags"
-    },
-    {
-        name: "Check for multiple replies",
-        functionName: "CheckNewReplies"
-    },
-    {
-        name: "Send new Invites (ONLY)",
-        functionName: "SendNewInvites"
-    }];
-
-    ss.addMenu("Annual Meeting", menuEntries);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var menuEntries = [ 
+    {name: "Process Invitations", functionName: "ProcessList"},
+    {name: "Clear flags for name updates", functionName: "clearRedFlags"},
+    {name: "Check for multiple replies", functionName: "CheckNewReplies"},
+    {name: "Send Reminder and Docs", functionName: "ReminderDocs"},
+    {name: "Email yourself Badge Names", functionName: "CheckBadges"}];
+    
+  
+  ss.addMenu("Annual Meeting", menuEntries);
 }
